@@ -1,210 +1,31 @@
-<!--
-
-To run this demo, you need to replace 'YOUR_API_KEY' with an API key from the ArcGIS Developers dashboard.
-
-Sign up for a free account and get an API key.
-
-https://developers.arcgis.com/documentation/mapping-apis-and-services/get-started/
-
--->
-
-
+<!DOCTYPE html>
 <html>
-
-  <head>
+<head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <script src=https://unpkg.com/maplibre-gl@3.2.1/dist/maplibre-gl.js></script>
-    <link href=https://unpkg.com/maplibre-gl@3.2.1/dist/maplibre-gl.css rel="stylesheet" />
-
-    <script src="https://unpkg.com/@esri/arcgis-rest-request@4.0.0/dist/bundled/request.umd.js"></script>
-    <script src="https://unpkg.com/@esri/arcgis-rest-routing@4.0.0/dist/bundled/routing.umd.js"></script>
-
-
+    <title>Routing</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/leaflet-routing-machine.css" />
     <style>
-      html,
-      body,
-      #map {
-        padding: 0;
-        margin: 0;
-        height: 100%;
-        width: 100%;
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 14px;
-        color: #323232;
-      }
-
-      #directions {
-        position: absolute;
-        width: 30%;
-        max-height: 50%;
-        right: 20px;
-        top: 20px;
-        overflow-y: auto; /* Show a scrollbar if needed */
-        background: white;
-        font-family: Arial, Helvetica, Verdana;
-        line-height: 1.5;
-        font-size: 14px;
-        padding: 10px;
-      }
-
+        .map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
     </style>
+</head>
+<body>
+    <button onclick="getLocation()">Find Direction</button>
+    <label for="barC">Choose a Barcode:</label>
 
-  </head>
+<select name="barC" id="barC">
+  <option value=123456789>123456789</option>
+  <option value=123456788>123456788</option>
+  <option value="123456787">123456787</option>
+</select>
 
-  <body>
-    <div id="map"></div>
-
-    <div id="directions">Click on the map to create a start and end for the route.</div>
-
-
-    <script>
-
-      const apiKey = "AAPKe53cb5099ae34d808741b562823d916ep2mbGNVW_TkIxAFLo_7beUiZ_eIZEkDlURI0HQTd4OjyuXwads2ciBK5vpUMu-VP";
-
-      const basemapEnum = "arcgis/navigation";
-
-      const map = new maplibregl.Map({
-        container: "map", // the id of the div element
-        style: `https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/${basemapEnum}?token=${apiKey}`,
-        zoom: 12, // starting zoom
-
-        center: [-79.3832, 43.6532] // Toronto
-
-      });
-
-      function addCircleLayers() {
-
-        map.addSource("start", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: []
-          }
-        });
-        map.addSource("end", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: []
-          }
-        });
-
-        map.addLayer({
-          id: "start-circle",
-          type: "circle",
-          source: "start",
-          paint: {
-            "circle-radius": 6,
-            "circle-color": "white",
-            "circle-stroke-color": "black",
-            "circle-stroke-width": 2
-          }
-        });
-
-        map.addLayer({
-          id: "end-circle",
-          type: "circle",
-          source: "end",
-          paint: {
-            "circle-radius": 7,
-            "circle-color": "black"
-          }
-        });
-
-      }
-
-      function addRouteLayer() {
-
-        map.addSource("route", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: []
-          }
-        });
-
-        map.addLayer({
-          id: "route-line",
-          type: "line",
-          source: "route",
-
-          paint: {
-            "line-color": "hsl(205, 100%, 50%)",
-            "line-width": 4,
-            "line-opacity": 0.6
-          }
-        });
-
-      }
-
-      function updateRoute() {
-
-        const authentication = arcgisRest.ApiKeyManager.fromKey(apiKey);
-
-        arcgisRest
-          .solveRoute({
-            stops: [startCoords, endCoords],
-            endpoint: "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve",
-            authentication
-          })
-
-          .then((response) => {
-            map.getSource("route").setData(response.routes.geoJson);
-
-            const directionsHTML = response.directions[0].features.map((f) => f.attributes.text).join("<br/>");
-            document.getElementById("directions").innerHTML = directionsHTML;
-
-          })
-
-          .catch((error) => {
-            console.error(error);
-            alert("There was a problem using the route service. See the console for details.");
-          });
-
-      }
-
-      map.on("load", () => {
-        addCircleLayers();
-
-        addRouteLayer();
-
-      });
-
-      let currentStep = "start";
-      let startCoords, endCoords;
-
-      map.on("click", (e) => {
-
-        const coordinates = e.lngLat.toArray();
-        const point = {
-          type: "Point",
-          coordinates
-        };
-
-        if (currentStep === "start") {
-          map.getSource("start").setData(point);
-          startCoords = coordinates;
-          const empty = {
-            type: "FeatureCollection",
-            features: []
-          };
-          map.getSource("end").setData(empty);
-          map.getSource("route").setData(empty);
-          endCoords = null;
-          currentStep = "end";
-        } else {
-          map.getSource("end").setData(point);
-          endCoords = coordinates;
-          currentStep = "start";
-        }
-
-        if (startCoords && endCoords) {
-          updateRoute(startCoords, endCoords);
-        }
-
-      });
-
-    </script>
-  </body>
+    <div id="map" class="map"></div>
+    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"></script>
+    <script src="leaflet-routing-machine.js"></script>
+    <script src="app.js"></script>
+</body>
 </html>
